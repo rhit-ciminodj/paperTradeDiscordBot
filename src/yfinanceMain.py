@@ -145,5 +145,3 @@ def list_all_stocks(source: str = "popular", limit: int | None = None):
     if limit:
         return symbols[:limit]
     return symbols
-
-print(list_all_stocks(source="sp500", limit=10))  # Example usage
