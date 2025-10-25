@@ -7,6 +7,7 @@ A Discord bot for paper trading and real-time market data analysis using yfinanc
 - **Stock Price Lookup**: Fetch current prices for individual stocks or lists (popular, S&P 500, Nasdaq-100).
 - **News Headlines**: Scrape recent news headlines for stocks.
 - **Market Data Analysis**: Get stock info, historical data, and price trends.
+- **Paper Trading**: Buy/sell stocks with virtual funds and track your portfolio.
 - **Discord Integration**: Interact with market data directly from Discord commands.
 
 ## Setup
@@ -15,8 +16,9 @@ A Discord bot for paper trading and real-time market data analysis using yfinanc
 
 - Python 3.8+
 - Discord bot token
+- Docker (optional, for containerized deployment)
 
-### Installation
+### Local Setup
 
 1. Clone the repository:
    ```bash
@@ -37,54 +39,87 @@ A Discord bot for paper trading and real-time market data analysis using yfinanc
 
 4. Create a `.env` file with your credentials:
    ```
-   DISCORD_TOKEN=your_discord_bot_token
+   DISCORD_BOT_TOKEN=your_discord_bot_token
    ```
 
-### Usage
+5. Run the bot:
+   ```bash
+   python src/main.py
+   ```
 
-Run the Discord bot:
-```bash
-python3 main.py
-```
+### Docker Setup
 
-Or test individual modules:
-```bash
-# Test stock prices
-python3 yfinanceMain.py
+1. Create a `.env` file with your token:
+   ```bash
+   echo "DISCORD_BOT_TOKEN=your_token_here" > .env
+   ```
 
-# Test news scraper
-python3 -c "from src.headlineNewsScraper import get_stock_headlines; print(get_stock_headlines('AAPL'))"
-```
+2. Build and run:
+   ```bash
+   sudo docker compose up --build
+   ```
 
-## Modules
+3. Run in background:
+   ```bash
+   sudo docker compose up -d
+   ```
 
-- **`yfinanceMain.py`**: Price lookup and list fetching (popular, S&P 500, Nasdaq-100).
-- **`src/headlineNewsScraper.py`**: Fetch recent news headlines for stocks.
+4. View logs:
+   ```bash
+   sudo docker compose logs -f
+   ```
 
-## API Integrations
+5. Stop the bot:
+   ```bash
+   sudo docker compose stop
+   ```
 
-- **yfinance**: Stock prices, historical data, and fundamental information.
-- **Discord**: Bot commands and messaging.
+6. Restart the bot:
+   ```bash
+   sudo docker compose up -d
+   ```
 
-## Data Sources
+## Commands
 
-- **yfinance**: Free stock data from Yahoo Finance (~15-20min delay).
-- **Wikipedia**: S&P 500 and Nasdaq-100 constituent lists.
+- `/investor <starting_funds>`: Become an investor with specified starting funds.
+- `/stop_grinding`: Remove investor role and data.
+- `/price <symbol>`: Get current market price of a stock.
+- `/get_funds`: Check your available funds.
+- `/finBERTsays <symbol>`: Get FinBERT analysis of stock news.
+- `/advice <symbol>`: Get investment advice for a stock.
+- `/graph <symbol>`: Get a graph of closing prices for a stock.
+- `/buy_shares <symbol> <shares>`: Buy a specific number of shares.
+- `/buy_dollars <symbol> <dollars>`: Buy shares worth a specific dollar amount.
+- `/sell_shares <symbol> <shares>`: Sell a specific number of shares.
+- `/sell_dollars <symbol> <dollars>`: Sell shares worth a specific dollar amount.
+- `/portfolio`: View your current portfolio.
+- `/get_info <symbol>`: Get basic information about a stock.
+- `/search_stocks <query> <num_results>`: Search for stocks by 'popular', 'sp500', or 'nasdaq100'. Num results is optional (default 10). Tells you random stocks from the selected category.
+- `/trade_history`: View your trade history.
 
-## Environment Variables
+## Database
 
-| Variable | Description |
-|----------|-------------|
-| `DISCORD_TOKEN` | Discord bot token |
+The bot uses SQLite (`user_data.db`) to store:
+- User portfolios
+- Trade history
+- Holdings and P&L
+
+With Docker, the database is mounted as a volume and persists between container restarts.
 
 ## Troubleshooting
 
-### HTTP 403 Forbidden (Wikipedia scraping)
-- Already handled with User-Agent headers; if it persists, check your internet connection.
+### Docker permission denied
+```bash
+sudo usermod -aG docker $USER
+newgrp docker
+```
 
-### No data returned for a stock
-- Verify the stock symbol is valid (e.g., `AAPL`, `TSLA`).
-- yfinance data may be delayed or unavailable for certain symbols.
+### Database not persisting
+Ensure `docker-compose.yml` has:
+```yaml
+volumes:
+  - .:/app
+```
 
 ## License
 
@@ -92,4 +127,4 @@ MIT
 
 ## Contributing
 
-Pull requests welcome. For major changes, open an issue first.
+Pull requests welcome!
