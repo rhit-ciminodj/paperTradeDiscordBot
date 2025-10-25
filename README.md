@@ -56,27 +56,32 @@ A Discord bot for paper trading and real-time market data analysis using yfinanc
 
 2. Build and run:
    ```bash
-   sudo docker compose up --build
+   sudo docker-compose up --build
    ```
 
 3. Run in background:
    ```bash
-   sudo docker compose up -d
+   sudo docker-compose up -d
    ```
 
 4. View logs:
    ```bash
-   sudo docker compose logs -f
+   sudo docker-compose logs -f
    ```
 
 5. Stop the bot:
    ```bash
-   sudo docker compose stop
+   sudo docker-compose stop
    ```
 
-6. Restart the bot:
+6. Start the bot again:
    ```bash
-   sudo docker compose up -d
+   sudo docker-compose start
+   ```
+
+7. Restart the bot:
+   ```bash
+   sudo docker-compose restart
    ```
 
 ## Commands
