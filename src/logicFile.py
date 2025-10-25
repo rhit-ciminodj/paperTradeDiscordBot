@@ -111,7 +111,7 @@ def investment_advice(symbol):
     
     advice = ""
     if sharpe > 2.0:
-        advice = f"✅ **Excellent** risk-adjusted returns (Sharpe: {sharpe})"
+        advice = f"✅ **Excellent - lil Dom** risk-adjusted returns (Sharpe: {sharpe})"
     elif sharpe > 1.0:
         advice = f"✅ **Good** risk-adjusted returns (Sharpe: {sharpe})"
     elif sharpe > 0.5:
@@ -125,4 +125,3 @@ def investment_advice(symbol):
     
     return advice
 
-print(investment_advice('AAPL'))

@@ -3,4 +3,12 @@
 __pycache__/
 *.pyc
 .DS_Store
+.cache/
+huggingface/
 
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+user_data.db
+paper_trade.db

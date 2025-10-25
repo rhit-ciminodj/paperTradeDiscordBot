@@ -45,7 +45,7 @@ def analyze_stock_headlines(symbol):
     # Format advice based on sentiment distribution
     advice = ""
     if positive_pct >= 70:
-        advice = f"✅ **Highly Positive** sentiment ({positive_count}/{total} positive headlines)"
+        advice = f"✅ **Highly Positive - lil Dom** sentiment ({positive_count}/{total} positive headlines)"
     elif positive_pct >= 50:
         advice = f"📈 **Positive** sentiment ({positive_count}/{total} positive headlines)"
     elif positive_pct >= 30:
