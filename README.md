@@ -5,9 +5,12 @@ A Discord bot for paper trading and real-time market data analysis using yfinanc
 ## Features
 
 - **Stock Price Lookup**: Fetch current prices for individual stocks or lists (popular, S&P 500, Nasdaq-100).
-- **News Headlines**: Scrape recent news headlines for stocks.
-- **Market Data Analysis**: Get stock info, historical data, and price trends.
+- **News Headlines**: Scrape recent news headlines for stocks with FinBERT sentiment analysis.
+- **Market Data Analysis**: Get stock info, historical data, charts, and price trends.
 - **Paper Trading**: Buy/sell stocks with virtual funds and track your portfolio.
+- **Performance Analytics**: Track trades, calculate P&L, win rates, and ROI.
+- **Leaderboard**: Compete with other investors and see rankings by net worth.
+- **Watchlist**: Monitor stocks without buying them.
 - **Discord Integration**: Interact with market data directly from Discord commands.
 
 ## Setup
@@ -66,7 +69,7 @@ A Discord bot for paper trading and real-time market data analysis using yfinanc
 
 4. View logs:
    ```bash
-   sudo docker-compose logs -f
+   sudo docker-compose logs -f bot
    ```
 
 5. Stop the bot:
@@ -86,30 +89,75 @@ A Discord bot for paper trading and real-time market data analysis using yfinanc
 
 ## Commands
 
-- `/investor <starting_funds>`: Become an investor with specified starting funds.
-- `/stop_grinding`: Remove investor role and data.
-- `/price <symbol>`: Get current market price of a stock.
-- `/get_funds`: Check your available funds.
-- `/finBERTsays <symbol>`: Get FinBERT analysis of stock news.
-- `/advice <symbol>`: Get investment advice for a stock.
-- `/graph <symbol>`: Get a graph of closing prices for a stock.
-- `/buy_shares <symbol> <shares>`: Buy a specific number of shares.
-- `/buy_dollars <symbol> <dollars>`: Buy shares worth a specific dollar amount.
-- `/sell_shares <symbol> <shares>`: Sell a specific number of shares.
-- `/sell_dollars <symbol> <dollars>`: Sell shares worth a specific dollar amount.
-- `/portfolio`: View your current portfolio.
-- `/get_info <symbol>`: Get basic information about a stock.
-- `/search_stocks <query> <num_results>`: Search for stocks by 'popular', 'sp500', or 'nasdaq100'. Num results is optional (default 10). Tells you random stocks from the selected category.
-- `/trade_history`: View your trade history.
+### Account Management
+- `/investor <starting_funds>` - Become an investor with specified starting funds.
+- `/stop_grinding` - Remove investor role and all associated data.
+- `/get_funds` - Check your available cash funds.
+
+### Trading
+- `/buy_shares <symbol> <shares>` - Buy a specific number of shares.
+- `/buy_dollars <symbol> <dollars>` - Buy shares worth a specific dollar amount.
+- `/sell_shares <symbol> <shares>` - Sell a specific number of shares.
+- `/sell_dollars <symbol> <dollars>` - Sell shares worth a specific dollar amount.
+- `/portfolio` - View your current portfolio with entry prices and totals.
+- `/trade_history` - View your complete trade history.
+
+### Market Data
+- `/price <symbol>` - Get current market price of a stock.
+- `/get_info <symbol>` - Get detailed stock information (sector, P/E ratio, market cap, etc.).
+- `/search_stocks <query> <num_results>` - Search for stocks. Query: 'popular', 'sp500', or 'nasdaq100'. Num results optional (default 10).
+- `/graph <symbol>` - Get a chart of closing prices for a stock.
+- `/finBERTsays <symbol>` - Get FinBERT sentiment analysis of stock news.
+- `/advice <symbol>` - Get investment advice and analysis for a stock.
+
+### Portfolio Analytics
+- `/networth` - Check your total net worth (cash + current stock value).
+- `/total_return` - Check your total return percentage since becoming an investor.
+- `/stats` - View your trading statistics (total trades, win rate, total P&L).
+- `/get_best_trades <top_n>` - View your top N best trades by profit % (default 5).
+- `/get_worst_trades <top_n>` - View your top N worst trades by loss % (default 5).
+- `/leaderboard` - View the top 5 investors by net worth.
+
+### Watchlist
+- `/watchlist <symbol>` - Add a stock to your watchlist.
+- `/unwatch <symbol>` - Remove a stock from your watchlist.
+- `/my_watchlist` - View your current watchlist with current prices.
+
+### Social Features
+- `/check_portfolio @user` - View another investor's portfolio.
+- `/compare_portfolio @user` - Compare your portfolio with another investor (side-by-side with ROI).
+
+### Help
+- `/help_investor` - Display all available commands.
 
 ## Database
 
 The bot uses SQLite (`user_data.db`) to store:
-- User portfolios
-- Trade history
-- Holdings and P&L
+- **Users**: Account info, starting funds, total funds
+- **Portfolios**: Current holdings with average entry prices and total invested
+- **Trades**: Complete buy/sell transaction history
+- **Trade Analytics**: Completed trades with profit/loss calculations for performance tracking
+- **Watchlist**: Monitored stocks per user
 
 With Docker, the database is mounted as a volume and persists between container restarts.
+
+## Architecture
+
+### File Structure
+```
+src/
+├── main.py                 # Discord bot commands
+├── database.py             # SQLite database operations
+├── yfinanceMain.py         # Stock data fetching
+├── finBERTAIlogic.py       # Sentiment analysis
+└── logicFile.py            # Investment advice & charting
+```
+
+### Key Features
+- **Weighted Average Entry Price**: Accurately tracks cost basis when buying at different prices
+- **P&L Tracking**: Automatic profit/loss calculation on each sale
+- **Real-time Pricing**: Fetches current prices from yfinance
+- **Global Error Handler**: Consistent error messages across all commands
 
 ## Troubleshooting
 
@@ -125,6 +173,21 @@ Ensure `docker-compose.yml` has:
 volumes:
   - .:/app
 ```
+
+### Database schema errors
+If you modify the database schema, delete the old database and restart:
+```bash
+sudo docker-compose down
+rm user_data.db
+sudo docker-compose up --build -d
+```
+
+## Performance Tips
+
+- Use `/search_stocks` to find new trading opportunities
+- Use `/watchlist` to monitor stocks before buying
+- Check `/leaderboard` to see how you rank against other investors
+- Review `/get_best_trades` and `/get_worst_trades` to learn from your mistakes
 
 ## License
 

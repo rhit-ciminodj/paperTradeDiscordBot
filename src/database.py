@@ -10,7 +10,8 @@ def init_db():
               user_id INTEGER PRIMARY KEY,
               username TEXT,
               join_date TIMESTAMP,
-              total_funds REAL
+              total_funds REAL,
+              starting_funds REAL
               )''')
 
     c.execute('''
@@ -31,8 +32,26 @@ def init_db():
               action TEXT,
               shares REAL,
               price REAL,
-              timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP)
-              ''')
+              timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+              )''')
+
+    c.execute('''CREATE TABLE IF NOT EXISTS trade_analytics (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            symbol TEXT,
+            entry_price REAL,
+            sell_price REAL,
+            shares REAL,
+            profit_loss REAL,
+            profit_loss_pct REAL,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )''')
+    
+    c.execute('''CREATE TABLE IF NOT EXISTS watchlist (
+            user_id INTEGER,
+            symbol TEXT,
+            PRIMARY KEY (user_id, symbol)
+            )''')
     
     conn.commit()
     conn.close()
@@ -41,9 +60,9 @@ def add_user(user_id, username, funds):
     conn = sqlite3.connect('user_data.db')
     c = conn.cursor()
     c.execute('''
-        INSERT OR IGNORE INTO users (user_id, username, join_date, total_funds)
-        VALUES (?, ?, ?, ?)
-    ''', (user_id, username, datetime.now(), funds))
+        INSERT OR IGNORE INTO users (user_id, username, join_date, total_funds, starting_funds)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (user_id, username, datetime.now(), funds, funds))
     conn.commit()
     conn.close()
 
@@ -53,7 +72,38 @@ def get_user_funds(user_id):
     c.execute('SELECT total_funds FROM users WHERE user_id = ?', (user_id,))
     result = c.fetchone()
     conn.close()
-    return result[0] if result else None
+    return round(result[0], 2) if result else None
+
+def get_user_starting_funds(user_id):
+    conn = sqlite3.connect('user_data.db')
+    c = conn.cursor()
+    c.execute('SELECT starting_funds FROM users WHERE user_id = ?', (user_id,))
+    result = c.fetchone()
+    conn.close()
+    return round(result[0], 2) if result else None
+
+def get_user_stock_total(user_id, current_prices):
+    """Calculate current total value of stocks in portfolio.
+    
+    Args:
+        user_id: Discord user ID
+        current_prices: dict like {"AAPL": 160.50, "TSLA": 245.30}
+    
+    Returns:
+        Total current value of all holdings
+    """
+    conn = sqlite3.connect('user_data.db')
+    c = conn.cursor()
+    c.execute('SELECT symbol, shares FROM portfolios WHERE user_id = ?', (user_id,))
+    holdings = c.fetchall()
+    conn.close()
+    
+    total_value = 0
+    for symbol, shares in holdings:
+        current_price = current_prices.get(symbol, 0)
+        total_value += shares * current_price
+    
+    return round(total_value, 2)
 
 def update_user_funds(user_id, new_funds):
     conn = sqlite3.connect('user_data.db')
@@ -112,13 +162,15 @@ def sell_from_portfolio(user_id, symbol, shares, sell_price):
     if previous_shares < shares:
         conn.close()
         raise ValueError("Not enough shares to sell")
-    elif previous_shares == shares:
+    
+    log_completed_trade(user_id, symbol, entry_price, sell_price, shares)
+    
+    if previous_shares == shares:
         # Sold all shares, delete position
         c.execute('DELETE FROM portfolios WHERE user_id = ? AND symbol = ?', (user_id, symbol))
     else:
         # Sold some shares, update position
         remaining_shares = previous_shares - shares
-        # Scale total_invested proportionally
         remaining_invested = total_invested * (remaining_shares / previous_shares)
         c.execute('''
             UPDATE portfolios
@@ -128,6 +180,46 @@ def sell_from_portfolio(user_id, symbol, shares, sell_price):
     
     conn.commit()
     conn.close()
+
+def log_completed_trade(user_id, symbol, entry_price, sell_price, shares):
+    profit_loss = (sell_price - entry_price) * shares
+    profit_loss_pct = (profit_loss / (entry_price * shares)) * 100 if entry_price * shares != 0 else 0
+    conn = sqlite3.connect('user_data.db')
+    c = conn.cursor()
+    c.execute('''
+        INSERT INTO trade_analytics (user_id, symbol, entry_price, sell_price, shares, profit_loss, profit_loss_pct, timestamp) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (user_id, symbol, entry_price, sell_price, shares, profit_loss, profit_loss_pct, datetime.now()))
+    conn.commit()
+    conn.close()
+
+def get_best_trades(user_id, top_n=5):
+    conn = sqlite3.connect('user_data.db')
+    c = conn.cursor()
+    c.execute('''
+        SELECT symbol, entry_price, sell_price, shares, profit_loss, profit_loss_pct, timestamp 
+        FROM trade_analytics 
+        WHERE user_id = ? 
+        ORDER BY profit_loss_pct DESC 
+        LIMIT ?
+    ''', (user_id, top_n))
+    trades = c.fetchall()
+    conn.close()
+    return trades
+
+def get_worst_trades(user_id, top_n=5):
+    conn = sqlite3.connect('user_data.db')
+    c = conn.cursor()
+    c.execute('''
+              SELECT symbol, entry_price, sell_price, shares, profit_loss, profit_loss_pct, timestamp
+              FROM trade_analytics
+              WHERE user_id = ?
+              ORDER BY profit_loss_pct ASC
+              LIMIT ?
+              ''', (user_id, top_n))
+    trades = c.fetchall()
+    conn.close()
+    return trades
 
 def log_trade(user_id, symbol, action, shares, price):
     conn = sqlite3.connect('user_data.db')
@@ -161,8 +253,54 @@ def remove_user(user_id):
     c.execute('DELETE FROM users WHERE user_id = ?', (user_id,))
     c.execute('DELETE FROM portfolios WHERE user_id = ?', (user_id,))
     c.execute('DELETE FROM trades WHERE user_id = ?', (user_id,))
+    c.execute('DELETE FROM watchlist WHERE user_id = ?', (user_id,))
+    c.execute('DELETE FROM trade_analytics WHERE user_id = ?', (user_id,))
     conn.commit()
     conn.close()
+
+def calculate_user_net_worth(user_id, current_prices):
+    funds = get_user_funds(user_id)
+    stock_total = get_user_stock_total(user_id, current_prices)
+    if funds is None or stock_total is None:
+        return None
+    return round(funds + stock_total, 2)
+
+def get_leaderboard(current_prices):
+    conn = sqlite3.connect('user_data.db')
+    c = conn.cursor()
+    c.execute('SELECT user_id FROM users')
+    users = c.fetchall()
+    user_dict = {}
+    for user_id in users:
+        net_worth = calculate_user_net_worth(user_id[0], current_prices)
+        if net_worth is not None:
+            user_dict[user_id[0]] = net_worth
+    conn.close()
+    # Sort users by net worth
+    sorted_leaderboard = sorted(user_dict.items(), key=lambda x: x[1], reverse=True)
+    return sorted_leaderboard[:5]
+
+def add_to_watchlist(user_id, symbol):
+    conn = sqlite3.connect('user_data.db')
+    c = conn.cursor()
+    c.execute('INSERT OR IGNORE INTO watchlist (user_id, symbol) VALUES (?, ?)', (user_id, symbol))
+    conn.commit()
+    conn.close()
+
+def remove_from_watchlist(user_id, symbol):
+    conn = sqlite3.connect('user_data.db')
+    c = conn.cursor()
+    c.execute('DELETE FROM watchlist WHERE user_id = ? AND symbol = ?', (user_id, symbol))
+    conn.commit()
+    conn.close()
+
+def get_watchlist(user_id):
+    conn = sqlite3.connect('user_data.db')
+    c = conn.cursor()
+    c.execute('SELECT symbol FROM watchlist WHERE user_id = ?', (user_id,))
+    symbols = c.fetchall()
+    conn.close()
+    return [symbol[0] for symbol in symbols]
 
 # Initialize the database when the module is imported
 init_db()
